@@ -1125,6 +1125,7 @@ function! xolox#notes#refresh_syntax() " {{{3
     let starttime = xolox#misc#timer#start()
     call xolox#notes#highlight_names(0)
     call xolox#notes#highlight_sources(0)
+    call s:toggle_code_snippet_text()
     call xolox#misc#timer#stop("notes.vim %s: Refreshed highlighting in %s.", g:xolox#notes#version, starttime)
   endif
 endfunction
@@ -1161,25 +1162,41 @@ function! s:sort_longest_to_shortest(a, b)
 endfunction
 
 function! xolox#notes#highlight_sources(force) " {{{3
+  let s:filetypes = []
   " Syntax highlight source code embedded in notes.
   let starttime = xolox#misc#timer#start()
   " Look for code blocks in the current note.
-  let filetypes = {}
+  let boundaries = {}
+
+  let line_number = 0
   for line in getline(1, '$')
     let ft = matchstr(line, '\({{[{]\|```\)\zs\w\+\>')
-    if ft !~ '^\d*$' | let filetypes[ft] = 1 | endif
+    if ft !~ '^\d*$'
+      let boundaries['start'] = line_number
+      let boundaries['ft'] = ft
+    endif
+
+    let ending = matchstr(line, '}}}')
+    if ending == '}}}' && has_key(boundaries, 'start')
+      let boundaries['end'] = line_number
+      call add(s:filetypes, copy(boundaries))
+      let boundaries = {}
+    endif
+
+    let line_number = line_number + 1
   endfor
   " Don't refresh the highlighting if nothing has changed.
-  if !a:force && exists('b:notes_previous_sources') && b:notes_previous_sources == filetypes
+  if !a:force && exists('b:notes_previous_sources') && b:notes_previous_sources == s:filetypes
     return
   else
-    let b:notes_previous_sources = filetypes
+    let b:notes_previous_sources = s:filetypes
   endif
   " Now we're ready to actually highlight the code blocks.
-  if !empty(filetypes)
+  if !empty(s:filetypes)
     let startgroup = 'notesCodeStart'
     let endgroup = 'notesCodeEnd'
-    for ft in keys(filetypes)
+    for boundaries in s:filetypes
+      let ft = boundaries['ft']
       let group = 'notesSnippet' . toupper(ft)
       let include = s:syntax_include(ft)
       for [startmarker, endmarker] in [['{{{', '}}}'], ['```', '```']]
@@ -1191,6 +1208,30 @@ function! xolox#notes#highlight_sources(force) " {{{3
     if &vbs >= 1
       call xolox#misc#timer#stop("notes.vim %s: Highlighted embedded %s sources in %s.", g:xolox#notes#version, join(sort(keys(filetypes)), '/'), starttime)
     endif
+  endif
+endfunction
+
+function! s:toggle_code_snippet_text()
+  let current_line = line('.') - 1
+  if !empty(s:filetypes)
+    for boundaries in s:filetypes
+        let ft = boundaries['ft']
+        if current_line == boundaries['start']
+          call nvim_buf_clear_namespace(0, -1, boundaries['start'], boundaries['start'] + 1)
+        else
+          let start_title = toupper(ft) . " CODE"
+          let fill = repeat(' ', 80 - len(start_title) - 1 - 1)
+          call nvim_buf_set_virtual_text(0, 0, boundaries['start'], [[start_title . fill, "ColorColumn"]], {})
+        endif
+
+        if current_line == boundaries['end']
+          call nvim_buf_clear_namespace(0, -1, boundaries['end'], boundaries['end'] + 1)
+        else
+          let end_title = "END " . toupper(ft) . " CODE"
+          let fill = repeat(' ', 80 - len(end_title) - 1 - 1)
+          call nvim_buf_set_virtual_text(0, 0, boundaries['end'], [[end_title . fill, "ColorColumn"]], {})
+        endif
+    endfor
   endif
 endfunction
 
@@ -1249,25 +1290,26 @@ function! s:normalize_ws(s)
   return xolox#misc#str#trim(substitute(a:s, '\_s\+', '', 'g'))
 endfunction
 
+
+let s:current_title_level = 0
 function! xolox#notes#foldexpr() " {{{3
-  " Folding expression to fold atx style Markdown headings.
-  let lastlevel = foldlevel(v:lnum - 1)
-  let nextlevel = match(getline(v:lnum), '^#\+\zs')
   let retval = '='
-  if lastlevel <= 0 && nextlevel >= 1
-    let retval = '>' . nextlevel
-  elseif nextlevel >= 1
-    if lastlevel > nextlevel
-      let retval = '<' . nextlevel
-    else
-      let retval = '>' . nextlevel
-    endif
+  let title_level = match(getline(v:lnum), '^#\+\zs')
+  let snippet_start_match = match(getline(v:lnum), '^{{{\zs')
+  let snippet_start_end = match(getline(v:lnum), '^}}}\zs')
+
+  if title_level > 0
+    let retval = '>' . title_level
+    let s:current_title_level = title_level
   endif
-  " Check whether the change in folding introduced by 'rv'
-  " is invalidated because we're inside a code block.
-  if retval != '=' && xolox#notes#inside_snippet(v:lnum, 1)
-    let retval = '='
+
+  if snippet_start_match >= 0
+      return ">" . (s:current_title_level+1)
   endif
+  if snippet_start_end >= 0
+      return "<" . (s:current_title_level+1)
+  endif
+
   return retval
 endfunction
 
@@ -1292,18 +1334,25 @@ function! xolox#notes#currently_inside_snippet() " {{{3
   return xolox#notes#inside_snippet(line('.'), col('.'))
 endfunction
 
+let s:fold_level_prefix = '-'
 function! xolox#notes#foldtext() " {{{3
   " Replace atx style "#" markers with "-" fold marker.
+  let line_count = v:foldend - v:foldstart
   let line = getline(v:foldstart)
   if line == ''
     let line = getline(v:foldstart + 1)
   endif
   let matches = matchlist(line, '^\(#\+\)\s*\(.*\)$')
   if len(matches) >= 3
-    let prefix = repeat('-', len(matches[1]))
-    return prefix . ' ' . matches[2] . ' '
+    let prefix = repeat(s:fold_level_prefix, len(matches[1]))
+    return prefix . ' ' . matches[2] . ' ' . line_count . ' lines'
   else
-    return line
+    let snippet_code_type = matchstr(line, '\({{[{]\|```\)\zs\w\+\>')
+    let fl = foldlevel(v:foldstart)
+    if snippet_code_type !~ '^\d*$'
+      return repeat(s:fold_level_prefix, fl) . ' ' . toupper(snippet_code_type) . ' CODE ' . (line_count-1) . ' lines'
+    else
+      return line
   endif
 endfunction
 
