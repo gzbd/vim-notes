@@ -1356,6 +1356,40 @@ function! xolox#notes#foldtext() " {{{3
   endif
 endfunction
 
+
+let s:item_states = ['TODO', 'XXX', 'FIXME', 'CURRENT', 'WIP', 'INPROGRESS', 'STARTED', 'DONE']
+function! xolox#notes#cycle_state(line_number, forward) " {{{3
+  let line = getline(a:line_number)
+  if line !~ xolox#notes#leading_bullet_pattern() " We aren't in bullet list
+    return
+  endif
+
+  let r = xolox#notes#leading_bullet_pattern() . ' \(\S\+\)'
+  let matches = matchlist(line, r)
+  if len(matches) == 0 " Bullet list has not text (line with only a bullet)
+    return
+  endif
+
+  let first_word = matches[3]
+
+  let current_state_index = index(s:item_states, first_word)
+
+  if  current_state_index < 0
+    let next_state = a:forward ? s:item_states[0] : s:item_states[len(s:item_states) - 1]
+    let new_line = substitute(line, first_word, next_state . " " . first_word, "")
+  else
+    let next_state_index = a:forward ? current_state_index + 1 : current_state_index - 1
+
+    if next_state_index < 0 || next_state_index > len(s:item_states) - 1
+      let new_line = substitute(line, first_word . " ", "", "")
+    else
+      let new_line = substitute(line, first_word, s:item_states[next_state_index], "")
+    endif
+  endif
+
+  call setline(a:line_number, new_line)
+endfunction
+
 " }}}1
 
 " Make sure the plug-in configuration has been properly initialized before

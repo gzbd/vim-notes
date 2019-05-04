@@ -11,6 +11,7 @@ New features:
 ![Code block markers screen shot](./doc/code_blocks.png)
 * Code block folding
 ![Code block folding screen shot](./doc/code_blocks_folding.png)
+* [Cycle through list item state](https://asciinema.org/a/bYwy5jvlI8l9xcOsmcSb16S5E) in normal mode with \<S-Left\> and \<S-Right\>
 
 The vim-notes plug-in for the [Vim text editor] [vim] makes it easy to manage your notes in Vim:
 
