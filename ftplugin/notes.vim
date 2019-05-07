@@ -134,6 +134,7 @@ let b:undo_ftplugin .= ' | execute "vunmap <buffer> <Leader>tn"'
 
 nnoremap <buffer><silent> <S-Right> :call xolox#notes#cycle_state(line('.'), 1)<CR>
 nnoremap <buffer><silent> <S-Left> :call xolox#notes#cycle_state(line('.'), 0)<CR>
+nnoremap <buffer><silent> <CR> :OpenNote<CR>
 
 " This is currently the only place where a command is guaranteed to be
 " executed when the user edits a note. Maybe I shouldn't abuse this (it

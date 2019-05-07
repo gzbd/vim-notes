@@ -33,6 +33,7 @@ command! -bar -bang -nargs=? -complete=customlist,xolox#notes#cmd_complete Delet
 command! -bang -nargs=? -complete=customlist,xolox#notes#keyword_complete SearchNotes call xolox#notes#search(<q-bang>, <q-args>)
 command! -bar -bang RelatedNotes call xolox#notes#related(<q-bang>)
 command! -bar -bang -nargs=? RecentNotes call xolox#notes#recent#show(<q-bang>, <q-args>)
+command! -bar OpenNote call xolox#notes#recent#open_note()
 command! -bar -bang MostRecentNote call xolox#notes#recent#edit(<q-bang>)
 command! -bar -count=1 ShowTaggedNotes call xolox#notes#tags#show_tags(<count>)
 command! -bar IndexTaggedNotes call xolox#notes#tags#create_index()

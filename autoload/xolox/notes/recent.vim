@@ -98,3 +98,19 @@ function! xolox#notes#recent#edit(bang) " {{{1
   execute 'edit' . a:bang fnameescape(fname)
   call xolox#notes#set_filetype()
 endfunction
+
+function! xolox#notes#recent#open_note()
+  let current_buff = bufname("%")
+  if current_buff != "[Recent Notes]"
+      return
+  endif
+
+  let line = getline('.')
+  if line !~ xolox#notes#leading_bullet_pattern() " We aren't in bullet list
+    return
+  endif
+
+  let note_title = split(line, ' • ')[0]
+  let fname = xolox#misc#path#merge(g:notes_directories[0], note_title)
+  execute 'edit' . fnameescape(fname)
+endfunction

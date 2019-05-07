@@ -12,6 +12,7 @@ New features:
 * Code block folding
 ![Code block folding screen shot](./doc/code_blocks_folding.png)
 * [Cycle through list item state](https://asciinema.org/a/bYwy5jvlI8l9xcOsmcSb16S5E) in normal mode with \<S-Left\> and \<S-Right\>
+* New OpenNote command in RecentNotes to open the note (or just hit `enter` key on a note title)
 
 The vim-notes plug-in for the [Vim text editor] [vim] makes it easy to manage your notes in Vim:
 
